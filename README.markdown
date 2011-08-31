@@ -1,22 +1,25 @@
-* What it does
+# What it does
 
-- Gathering the jobs from the jenkins servers around
+* Gathering the jobs from the jenkins servers around
 It reads a list of your jenkins servers in config.txt. It creates a hashmap including all jobs from all servers (job url, name, color). It downloads the claim info from the jenkins claim page (it you have installed the claim plugin). It saves the hashmap to memcached server under they key "meta_butler_jobs". The memcached server is specified in the config as well.
 
 To run it once
-```bash
+
+```
 python meta_butler.py
 ```
 
 to run it continually
-```bash
+
+```
 nohup ./refresh.sh &
 ```
 
-- Accessing the jobs information
+* Accessing the jobs information
 There is a little flask app to access the info in json format.
 to start the server in dev mode
-```bash
+
+```
 python json_interface.py
 ```
 
