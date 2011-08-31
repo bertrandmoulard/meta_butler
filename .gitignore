@@ -7,3 +7,4 @@ man
 .Python
 config.txt
 nohup.out
+*.wsgi
