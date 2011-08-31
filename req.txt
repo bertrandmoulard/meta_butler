@@ -1,0 +1,10 @@
+Flask==0.7.2
+Jinja2==2.6
+Werkzeug==0.7.1
+lxml==2.3
+mock==0.7.2
+nose==1.1.2
+python-memcached==1.47
+simplejson==2.1.6
+virtualenv==1.5.1
+wsgiref==0.1.2
