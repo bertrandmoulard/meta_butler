@@ -17,10 +17,10 @@ def teardown_request(exception):
 
 @app.route("/jobs")
 def jobs():
-  all_jobs, jobs_to_return = g.mc.get("meta_butler_jobs"), {}
+  all_jobs, jobs_to_return = g.mc.get("meta_butler_data"), {}
   for key in [job.strip() for job in request.args.get('jobs').split(",")]:
     if all_jobs.has_key(key):
-      jobs_to_return = all_jobs[key]
+      jobs_to_return = all_jobs['jobs'][key]
   return json.dumps(jobs_to_return)
   
 if __name__ == "__main__":

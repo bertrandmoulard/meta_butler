@@ -9,7 +9,7 @@ class MetaButler:
     connection_string = self.config.get("meta_butler", "memcache_host") + ":"
     connection_string += self.config.get("meta_butler", "memcache_port")
     self.mc = memcache.Client([connection_string], debug=0)
-    self.jobs = {}
+    self.data = {"jobs": {}, "errors": []}
     
 
   def parse_servers_config(self, servers_csv):
@@ -23,8 +23,8 @@ class MetaButler:
       job_name = self.get_job_name_from_row(row)
       
       if claimer is not None and job_name is not None:
-        if self.jobs[server + "jobs/" + job_name] is not None:
-          self.jobs[server + "jobs/" + job_name]['claim'] = claimer
+        if self.data["jobs"][server + "jobs/" + job_name] is not None:
+          self.data["jobs"][server + "jobs/" + job_name]['claim'] = claimer
         
   
   def get_job_name_from_row(self, row):
@@ -46,16 +46,15 @@ class MetaButler:
     for job in o['jobs']:
       id = server + "jobs/" + job['name']
       job_hash = {"name" : job['name'], "server" : server, "color" : job['color']}
-      self.jobs[id] = job_hash
+      self.data["jobs"][id] = job_hash
   
-  def save_jobs(self):
-    self.mc.set("meta_butler_jobs", self.jobs)
+  def save_data(self):
+    self.mc.set("meta_butler_data", self.data)
     
-  def add_refresh_time_to_jobs(self):
+  def add_refresh_time_to_data(self):
     now = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
-    for job in self.jobs.itervalues():
-      job['refresh'] = now
-      
+    self.data['refresh'] = now
+          
   def do_your_job(self):
     for server in self.servers:
       jobs_content = self.download_server_info(server)
@@ -72,24 +71,25 @@ class MetaButler:
         print "error collecting claims from this content: "
         print claims_content
       
-    self.add_refresh_time_to_jobs()
-    self.save_jobs()
+    self.add_refresh_time_to_data()
+    self.save_data()
     
-    
-  @classmethod
-  def download_server_info(cls, server):
+  def download_server_info(self, server):
     try:
-      return urllib2.urlopen(server + "api/json").read()
+      return urllib2.urlopen(server + "api/json", timeout=2).read()
     except Exception, (error):
-      print "error downloading jobs info from: " + server
+      error = "error downloading jobs info from: " + server
+      self.data['errors'].append(error)
+      print error
       return None
   
-  @classmethod
-  def download_claim_info(cls, server):
+  def download_claim_info(self, server):
     try:
-      return urllib2.urlopen(server + "claims/?").read()
+      return urllib2.urlopen(server + "claims/?", timeout=2).read()
     except Exception, (error):
-      print "error downloading claims info from: " + server
+      error = "error downloading claims info from: " + server
+      self.data['errors'].append(error)
+      print error
       return None
     
 if __name__ == '__main__':

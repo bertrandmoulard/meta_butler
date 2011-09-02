@@ -9,28 +9,30 @@ class TestHerding:
   @patch('urllib2.urlopen')
   def test_download_server_info(self, fake_uopen):
     fake_uopen.return_value.read.return_value = "somejson"
-    MetaButler.download_server_info("http://someserver/")
-    fake_uopen.assert_called_once_with("http://someserver/api/json")
+    MetaButler().download_server_info("http://someserver/")
+    fake_uopen.assert_called_once_with("http://someserver/api/json", timeout=2)
   
   @patch('urllib2.urlopen')
   def test_download_claim_info(self, fake_uopen):
     fake_uopen.return_value.read.return_value = "somehtml"
-    MetaButler.download_claim_info("http://someserver/")
-    fake_uopen.assert_called_once_with("http://someserver/claims/?")
+    MetaButler().download_claim_info("http://someserver/")
+    fake_uopen.assert_called_once_with("http://someserver/claims/?", timeout=2)
   
   def test_collect_jobs_from_json(self):
     butler = MetaButler()
     butler.collect_jobs_from_json('http://ci.dev/', '{"jobs":[{"name": "job1", "color": "blue"}]}')
-    job = butler.jobs["http://ci.dev/jobs/job1"]
+    job = butler.data["jobs"]["http://ci.dev/jobs/job1"]
     assert job['name'] == "job1"
     assert job['server'] == "http://ci.dev/"
     assert job['color'] == "blue"
     
   def test_collect_claims_from_html(self):
     butler = MetaButler()
-    butler.jobs = {
-      "http://ci.dev/jobs/unit_tests": {"name": "unit_tests"}, 
-      "http://ci.dev/jobs/acceptance_tests": {"name": "acceptance_tests"}, 
+    butler.data = {
+      "jobs": {
+        "http://ci.dev/jobs/unit_tests": {"name": "unit_tests"}, 
+        "http://ci.dev/jobs/acceptance_tests": {"name": "acceptance_tests"}
+      }
     }
     html_content = """
     <table class="sortable pane bigtable" id="projectStatus">
@@ -53,25 +55,22 @@ class TestHerding:
     </table>
     """
     butler.collect_claims_from_html('http://ci.dev/', html_content)
-    assert butler.jobs["http://ci.dev/jobs/unit_tests"]['claim'] == "Gob Bluth"
-    assert butler.jobs["http://ci.dev/jobs/acceptance_tests"]['claim'] == "Michael Bluth"
+    assert butler.data["jobs"]["http://ci.dev/jobs/unit_tests"]['claim'] == "Gob Bluth"
+    assert butler.data["jobs"]["http://ci.dev/jobs/acceptance_tests"]['claim'] == "Michael Bluth"
     
-  def test_save_jobs_to_memcached(self):
+  def test_save_data_to_memcached(self):
     memcache_client_patcher = patch('memcache.Client')
     fake_mc = memcache_client_patcher.start()
     butler = MetaButler()
-    butler.jobs = {"yep": "nope"}
-    butler.save_jobs()
-    fake_mc.return_value.set.assert_called_once_with('meta_butler_jobs', {'yep': 'nope'})
+    butler.data = {"yep": "nope"}
+    butler.save_data()
+    fake_mc.return_value.set.assert_called_once_with('meta_butler_data', {'yep': 'nope'})
     memcache_client_patcher.stop()
   
   
   @patch("time.strftime")
-  def test_add_refresh_time_to_jobs(self, fake_strftime):
+  def test_add_refresh_time_to_data(self, fake_strftime):
     fake_strftime.return_value = "some time"
     butler = MetaButler()
-    butler.jobs = {
-      "http://ci.dev/jobs/unit_tests": {"name": "unit_tests"}
-    }
-    butler.add_refresh_time_to_jobs()
-    assert butler.jobs["http://ci.dev/jobs/unit_tests"]["refresh"] == "some time"
+    butler.add_refresh_time_to_data()
+    assert butler.data["refresh"] == "some time"
