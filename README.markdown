@@ -32,9 +32,3 @@ http://hostname/jobs
 ```
 
 will get you the json with all the jobs
-
-```
-http://hostname/jobs?jobs=http://my.ci.server/jobs/unittests,http://my.ci.server/jobs/acceptancetests
-```
-
-will get you the json for two jobs only (so provide a csv list of job urls to filter to response)

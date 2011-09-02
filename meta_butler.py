@@ -52,24 +52,25 @@ class MetaButler:
     self.mc.set("meta_butler_data", self.data)
     
   def add_refresh_time_to_data(self):
-    now = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
-    self.data['refresh'] = now
+    self.data['refresh'] = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
           
   def do_your_job(self):
     for server in self.servers:
       jobs_content = self.download_server_info(server)
-      try:
-        self.collect_jobs_from_json(server, jobs_content)
-      except Exception, (error):
-        print "error collecting jobs from this content: "
-        print jobs_content
+      if jobs_content is not None:
+        try:
+          self.collect_jobs_from_json(server, jobs_content)
+        except Exception, (error):
+          self.print_with_time("error collecting jobs from this content: ")
+          print jobs_content
       
       claims_content = self.download_claim_info(server)
-      try:
-        self.collect_claims_from_html(server, claims_content)
-      except Exception, (error):
-        print "error collecting claims from this content: "
-        print claims_content
+      if claims_content is not None:
+        try:
+          self.collect_claims_from_html(server, claims_content)
+        except Exception, (error):
+          self.print_with_time("error collecting claims from this content: ")
+          print claims_content
       
     self.add_refresh_time_to_data()
     self.save_data()
@@ -80,7 +81,7 @@ class MetaButler:
     except Exception, (error):
       error = "error downloading jobs info from: " + server
       self.data['errors'].append(error)
-      print error
+      self.print_with_time(error)
       return None
   
   def download_claim_info(self, server):
@@ -89,8 +90,11 @@ class MetaButler:
     except Exception, (error):
       error = "error downloading claims info from: " + server
       self.data['errors'].append(error)
-      print error
+      self.print_with_time(error)
       return None
+  
+  def print_with_time(self, error):
+    print datetime.datetime.now().strftime("%Y/%m/%d - %H:%M:%S") + ": " + str(error)
     
 if __name__ == '__main__':
   butler = MetaButler()
