@@ -1,26 +1,23 @@
 from flask import Flask, g, request
 import ConfigParser
 import memcache, json
+from flask import make_response
 
 app = Flask(__name__)
 
-def get_memcache_client():
-  return memcache.Client(['127.0.0.1:11211'], debug=0)
-  
-@app.before_request
-def before_request():
-  g.mc = get_memcache_client()
-  
-@app.teardown_request
-def teardown_request(exception):
-  g.mc.disconnect_all()
-
 @app.route("/jobs")
 def jobs():
+  data = ''
   try:
-    return json.dumps(g.mc.get("meta_butler_data"))
+    mc = memcache.Client(['127.0.0.1:11211'], debug=0)
+    data = mc.get("meta_butler_data")
+    mc.disconnect_all()
+    data = json.dumps(data)
   except Exception, (error):
-    return json.dumps({"errors": ["error getting data from memcached"]})
+    data = json.dumps({"errors": ["error getting data from memcached"]})
+  resp = make_response(data, 200)
+  resp.headers["Access-Control-Allow-Origin"] = "*";
+  return resp
   
 if __name__ == "__main__":
   app.debug = True
