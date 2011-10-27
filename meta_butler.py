@@ -1,11 +1,41 @@
 import ConfigParser, json, memcache, urllib2, datetime
 import lxml.html
+import jsonpickle
+
+class Job:
+  def __init__(self, job_json, jobs_data):
+    self.url = job_json
+    job_data = jobs_data["jobs"][job_json]
+    self.color = job_data["color"]
+    self.name = job_data["name"]
+    print job_data
+    if "claim" in job_data:
+      self.claim = job_data["claim"]
+
+class Stage:
+  def __init__(self, stage_json, jobs_data):
+    self.name = stage_json['name']
+    self.jobs = []
+    self.color = "blue"
+    for job_json in stage_json['jobs']:
+      job = Job(job_json, jobs_data)
+      if job.color.find("red") > -1:
+        self.color = "red"
+      elif self.color is not "red" and job.color.find("anime")  > -1:
+        self.color = "blue_anime"
+      self.jobs.append(job)
+
+class Pipeline:
+  def __init__(self, pipeline_json, jobs_data):
+    self.stages = []
+    self.name = pipeline_json['name']
+    for stage_json in pipeline_json['stages']:
+      self.stages.append(Stage(stage_json, jobs_data))
 
 class MetaButler:
   def __init__(self):
 		self.pipelines = []
 		self.read_config()
-		print self.servers
 		self.data = {"jobs": {}, "errors": []}
 
   def read_config(self):
@@ -15,13 +45,13 @@ class MetaButler:
     connection_string = j["meta_butler"]["memcache_host"] + ":"
     connection_string += j["meta_butler"]["memcache_port"]
     self.mc = memcache.Client([connection_string], debug=0)
-    create_empty_pipelines(j['pipelines'])
-	
-	
-	def create_empty_pipelines(self, pipelines_config):
-    for pipeline_config in pipeline_configs:
-		  print pipeline_config['name']
+    self.pipeline_config = j['pipelines']
     
+  def populate_pipelines(self, pipeline_configs, jobs_data):
+    for pipeline_json in pipeline_configs:
+      pipeline = Pipeline(pipeline_json, jobs_data)
+      self.pipelines.append(pipeline)
+
   def collect_claims_from_html(self, server, html_string):
     html = lxml.html.fromstring(html_string)
     rows = html.cssselect("#projectStatus tr")
@@ -57,6 +87,7 @@ class MetaButler:
   
   def save_data(self):
     self.mc.set("all_jobs", self.data)
+    self.mc.set("pipelines", jsonpickle.encode(self.pipelines, unpicklable=False))
     
   def add_refresh_time_to_data(self):
     self.data['refresh'] = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
@@ -80,6 +111,7 @@ class MetaButler:
           print claims_content
       
     self.add_refresh_time_to_data()
+    self.populate_pipelines(self.pipeline_config, self.data)
     self.save_data()
     
   def download_server_info(self, server):
@@ -105,4 +137,4 @@ class MetaButler:
     
 if __name__ == '__main__':
   butler = MetaButler()
-  #butler.do_your_job()
+  butler.do_your_job()
