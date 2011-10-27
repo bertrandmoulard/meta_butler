@@ -86,8 +86,10 @@ class MetaButler:
       self.data["jobs"][id] = job_hash
   
   def save_data(self):
+    print self.data
+    print json.loads(jsonpickle.encode(self.pipelines, unpicklable=False))
     self.mc.set("all_jobs", self.data)
-    self.mc.set("pipelines", jsonpickle.encode(self.pipelines, unpicklable=False))
+    self.mc.set("pipelines", json.loads(jsonpickle.encode(self.pipelines, unpicklable=False)))
     
   def add_refresh_time_to_data(self):
     self.data['refresh'] = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
