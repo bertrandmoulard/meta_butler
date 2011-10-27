@@ -8,7 +8,6 @@ class Job:
     job_data = jobs_data["jobs"][job_json]
     self.color = job_data["color"]
     self.name = job_data["name"]
-    print job_data
     if "claim" in job_data:
       self.claim = job_data["claim"]
 
@@ -17,6 +16,7 @@ class Stage:
     self.name = stage_json['name']
     self.jobs = []
     self.color = "blue"
+    self.blocks_commits = stage_json['blocks_commits']
     for job_json in stage_json['jobs']:
       job = Job(job_json, jobs_data)
       if job.color.find("red") > -1:
@@ -28,9 +28,13 @@ class Stage:
 class Pipeline:
   def __init__(self, pipeline_json, jobs_data):
     self.stages = []
+    self.can_commit = True
     self.name = pipeline_json['name']
     for stage_json in pipeline_json['stages']:
-      self.stages.append(Stage(stage_json, jobs_data))
+      stage = Stage(stage_json, jobs_data)
+      self.stages.append(stage)
+      if stage.blocks_commits and stage.color is "red":
+        self.can_commits = False
 
 class MetaButler:
   def __init__(self):
@@ -86,8 +90,6 @@ class MetaButler:
       self.data["jobs"][id] = job_hash
   
   def save_data(self):
-    print self.data
-    print json.loads(jsonpickle.encode(self.pipelines, unpicklable=False))
     self.mc.set("all_jobs", self.data)
     self.mc.set("pipelines", json.loads(jsonpickle.encode(self.pipelines, unpicklable=False)))
     
