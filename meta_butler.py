@@ -3,17 +3,24 @@ import lxml.html
 
 class MetaButler:
   def __init__(self):
-    self.config = ConfigParser.ConfigParser()
-    self.config.readfp(open("config.txt"))
-    self.servers = self.parse_servers_config(self.config.get("meta_butler", "servers"))
-    connection_string = self.config.get("meta_butler", "memcache_host") + ":"
-    connection_string += self.config.get("meta_butler", "memcache_port")
-    self.mc = memcache.Client([connection_string], debug=0)
-    self.data = {"jobs": {}, "errors": []}
-    
+		self.pipelines = []
+		self.read_config()
+		print self.servers
+		self.data = {"jobs": {}, "errors": []}
 
-  def parse_servers_config(self, servers_csv):
-    return [server.strip() for server in servers_csv.split(',')]
+  def read_config(self):
+    f = open("config.js")
+    j = json.load(f)
+    self.servers = j['meta_butler']['servers'] 
+    connection_string = j["meta_butler"]["memcache_host"] + ":"
+    connection_string += j["meta_butler"]["memcache_port"]
+    self.mc = memcache.Client([connection_string], debug=0)
+    create_empty_pipelines(j['pipelines'])
+	
+	
+	def create_empty_pipelines(self, pipelines_config):
+    for pipeline_config in pipeline_configs:
+		  print pipeline_config['name']
     
   def collect_claims_from_html(self, server, html_string):
     html = lxml.html.fromstring(html_string)
@@ -49,7 +56,7 @@ class MetaButler:
       self.data["jobs"][id] = job_hash
   
   def save_data(self):
-    self.mc.set("meta_butler_data", self.data)
+    self.mc.set("all_jobs", self.data)
     
   def add_refresh_time_to_data(self):
     self.data['refresh'] = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
@@ -98,4 +105,4 @@ class MetaButler:
     
 if __name__ == '__main__':
   butler = MetaButler()
-  butler.do_your_job()
+  #butler.do_your_job()

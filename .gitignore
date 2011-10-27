@@ -8,3 +8,4 @@ man
 config.txt
 nohup.out
 *.wsgi
+*.swp

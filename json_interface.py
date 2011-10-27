@@ -10,7 +10,7 @@ def jobs():
   data = ''
   try:
     mc = memcache.Client(['127.0.0.1:11211'], debug=0)
-    data = mc.get("meta_butler_data")
+    data = mc.get("all_jobs")
     mc.disconnect_all()
     data = json.dumps(data)
   except Exception, (error):
