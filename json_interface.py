@@ -18,7 +18,21 @@ def jobs():
   resp = make_response(data, 200)
   resp.headers["Access-Control-Allow-Origin"] = "*";
   return resp
-  
+
+@app.route("/pipelines")
+def pipelines():
+  data = ''
+  try:
+    mc = memcache.Client(['127.0.0.1:11211'], debug=0)
+    data = mc.get("pipelines")
+    mc.disconnect_all()
+    data = json.dumps(data)
+  except Exception, (error):
+    data = json.dumps({"errors": ["error getting data from memcached"]})
+  resp = make_response(data, 200)
+  resp.headers["Access-Control-Allow-Origin"] = "*";
+  return resp
+
 if __name__ == "__main__":
   app.debug = True
   app.run(host='0.0.0.0', port=8080)
