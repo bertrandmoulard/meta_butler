@@ -2,6 +2,7 @@ from flask import Flask, g, request
 import ConfigParser
 import memcache, json
 from flask import make_response
+import os
 
 app = Flask(__name__)
 
@@ -25,6 +26,13 @@ def jobs():
 @app.route("/pipelines")
 def pipelines():
   return get_data("pipelines")
+
+@app.route("/config.json")
+def config():
+  f = open(os.path.join("/", "home", "ci", "meta_butler", "config.js"))
+  content = f.read()
+  f.close()
+  return content
 
 if __name__ == "__main__":
   app.debug = True
