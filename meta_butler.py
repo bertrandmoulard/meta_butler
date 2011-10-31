@@ -5,11 +5,15 @@ import jsonpickle
 class Job:
   def __init__(self, job_json, jobs_data):
     self.url = job_json
-    job_data = jobs_data["jobs"][job_json]
-    self.color = job_data["color"]
-    self.name = job_data["name"]
-    if "claim" in job_data:
-      self.claim = job_data["claim"]
+    try:
+      job_data = jobs_data["jobs"][job_json]
+      self.color = job_data["color"]
+      self.name = job_data["name"]
+      if "claim" in job_data:
+        self.claim = job_data["claim"]
+    except:
+      self.color = "transparent"
+      self.name = job_json.split("/")[-1]
 
 class Stage:
   def __init__(self, stage_json, jobs_data):
@@ -34,13 +38,14 @@ class Pipeline:
       stage = Stage(stage_json, jobs_data)
       self.stages.append(stage)
       if stage.blocks_commits and stage.color is "red":
-        self.can_commits = False
+        self.can_commit = False
+    self.refresh_time = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
 
 class MetaButler:
   def __init__(self):
-		self.pipelines = []
-		self.read_config()
-		self.data = {"jobs": {}, "errors": []}
+    self.pipelines = []
+    self.read_config()
+    self.data = {"jobs": {}, "errors": []}
 
   def read_config(self):
     f = open("config.js")
@@ -64,8 +69,8 @@ class MetaButler:
       job_name = self.get_job_name_from_row(row)
       
       if claimer is not None and job_name is not None:
-        if self.data["jobs"][server + "jobs/" + job_name] is not None:
-          self.data["jobs"][server + "jobs/" + job_name]['claim'] = claimer
+        if self.data["jobs"][server + "job/" + job_name] is not None:
+          self.data["jobs"][server + "job/" + job_name]['claim'] = claimer
         
   
   def get_job_name_from_row(self, row):
@@ -85,7 +90,7 @@ class MetaButler:
   def collect_jobs_from_json(self, server, json_string):
     o = json.loads(json_string)
     for job in o['jobs']:
-      id = server + "jobs/" + job['name']
+      id = server + "job/" + job['name']
       job_hash = {"name" : job['name'], "server" : server, "color" : job['color']}
       self.data["jobs"][id] = job_hash
   

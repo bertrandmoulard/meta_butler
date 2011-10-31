@@ -23,6 +23,7 @@ def get_data(key):
 def jobs():
   return get_data("all_jobs")
 
+@app.route("/pipelines.json")
 @app.route("/pipelines")
 def pipelines():
   return get_data("pipelines")

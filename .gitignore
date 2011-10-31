@@ -9,3 +9,4 @@ config.txt
 nohup.out
 *.wsgi
 *.swp
+config.js
