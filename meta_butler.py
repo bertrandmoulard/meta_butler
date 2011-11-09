@@ -1,6 +1,7 @@
 import ConfigParser, json, memcache, urllib2, datetime
 import lxml.html
 import jsonpickle
+import re
 
 class Job:
   def __init__(self, job_json, jobs_data):
@@ -85,7 +86,7 @@ class MetaButler:
     for td in tds:
       if td.text_content().startswith("claimed by"):
         claimer_text = td.text_content().replace("claimed by", "").strip()
-				return re.sub("\s*because:.*", "", claimer_text)
+        return re.sub("\s*because:.*", "", claimer_text)
     return None
       
   def collect_jobs_from_json(self, server, json_string):
