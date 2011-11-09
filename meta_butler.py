@@ -84,7 +84,8 @@ class MetaButler:
     tds = row.cssselect("td")
     for td in tds:
       if td.text_content().startswith("claimed by"):
-        return td.text_content().replace("claimed by", "").strip()
+        claimer_text = td.text_content().replace("claimed by", "").strip()
+				return re.sub("\s*because:.*", "", claimer_text)
     return None
       
   def collect_jobs_from_json(self, server, json_string):
