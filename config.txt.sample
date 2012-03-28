@@ -1,4 +1,4 @@
-[herder]
+[meta_butler]
 
 servers: http://oneserver:8080/, http://twoservers:9080/
 memcache_host: 127.0.0.1

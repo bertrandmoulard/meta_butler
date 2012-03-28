@@ -4,7 +4,7 @@ from meta_butler import MetaButler
 from unittest import TestCase
 import os.path, time
 
-class TestHerding:
+class TestMetaButler:
 
   @patch('urllib2.urlopen')
   def test_download_server_info(self, fake_uopen):
