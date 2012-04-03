@@ -104,6 +104,16 @@ class MetaButler:
     self.data['refresh'] = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
           
   def do_your_job(self):
+    if self.servers is not None:
+      process_jenkins_servers()
+    if self.bamboo_servers is not None:
+      process_bamboo_servers()
+
+    self.add_refresh_time_to_data()
+    self.populate_pipelines(self.pipeline_config, self.data)
+    self.save_data()
+
+  def process_jenkins_servers(self):
     for server in self.servers:
       jobs_content = self.download_server_info(server)
       if jobs_content is not None:
@@ -120,10 +130,9 @@ class MetaButler:
         except Exception, (error):
           self.print_with_time("error collecting claims from this content: ")
           print claims_content
-      
-    self.add_refresh_time_to_data()
-    self.populate_pipelines(self.pipeline_config, self.data)
-    self.save_data()
+
+  def process_bamboo_servers(self):
+    print "noop"
     
   def download_server_info(self, server):
     try:
