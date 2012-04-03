@@ -5,21 +5,22 @@ from unittest import TestCase
 import os.path, time
 
 class TestMetaButler:
+  config = "tests/fixture_config.js"
 
   @patch('urllib2.urlopen')
   def test_download_server_info(self, fake_uopen):
     fake_uopen.return_value.read.return_value = "somejson"
-    MetaButler().download_server_info("http://someserver/")
+    MetaButler(self.config).download_server_info("http://someserver/")
     fake_uopen.assert_called_once_with("http://someserver/api/json", timeout=2)
   
   @patch('urllib2.urlopen')
   def test_download_claim_info(self, fake_uopen):
     fake_uopen.return_value.read.return_value = "somehtml"
-    MetaButler().download_claim_info("http://someserver/")
+    MetaButler(self.config).download_claim_info("http://someserver/")
     fake_uopen.assert_called_once_with("http://someserver/claims/?", timeout=2)
   
   def test_collect_jobs_from_json(self):
-    butler = MetaButler()
+    butler = MetaButler(self.config)
     butler.collect_jobs_from_json('http://ci.dev/', '{"jobs":[{"name": "job1", "color": "blue"}]}')
     job = butler.data["jobs"]["http://ci.dev/job/job1"]
     assert job['name'] == "job1"
@@ -27,7 +28,7 @@ class TestMetaButler:
     assert job['color'] == "blue"
     
   def test_collect_claims_from_html(self):
-    butler = MetaButler()
+    butler = MetaButler(self.config)
     butler.data = {
       "jobs": {
         "http://ci.dev/job/unit_tests": {"name": "unit_tests"}, 
@@ -61,7 +62,7 @@ class TestMetaButler:
   def test_save_data_to_memcached(self):
     memcache_client_patcher = patch('memcache.Client')
     fake_mc = memcache_client_patcher.start()
-    butler = MetaButler()
+    butler = MetaButler(self.config)
     butler.data = {"yep": "nope"}
     butler.save_data()
     expected = [call('all_jobs', {'yep': 'nope'}), call('pipelines', [])]
@@ -72,6 +73,6 @@ class TestMetaButler:
   @patch("time.strftime")
   def test_add_refresh_time_to_data(self, fake_strftime):
     fake_strftime.return_value = "some time"
-    butler = MetaButler()
+    butler = MetaButler(self.config)
     butler.add_refresh_time_to_data()
     assert butler.data["refresh"] == "some time"

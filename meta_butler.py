@@ -43,13 +43,13 @@ class Pipeline:
     self.refresh_time = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
 
 class MetaButler:
-  def __init__(self):
+  def __init__(self, path_to_config = "config.js"):
     self.pipelines = []
-    self.read_config()
+    self.read_config(path_to_config)
     self.data = {"jobs": {}, "errors": []}
 
-  def read_config(self):
-    f = open("config.js")
+  def read_config(self, path_to_config):
+    f = open(path_to_config)
     j = json.load(f)
     self.servers = j['meta_butler']['servers'] 
     connection_string = j["meta_butler"]["memcache_host"] + ":"
