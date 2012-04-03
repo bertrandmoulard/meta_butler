@@ -42,6 +42,34 @@ class Pipeline:
         self.can_commit = False
     self.refresh_time = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
 
+class Bamboo:
+  ALL_PLANS_PATH = "/rest/api/latest/plan.json?expand=plans.plan.stages.stage.plans"
+
+  def __init__(self, servers):
+    self.servers = servers
+
+  def process(self):
+    for server in self.servers:
+      jobs_content = self.download_server_info(server)
+      if jobs_content is not None:
+        print jobs_content
+        try:
+          self.collect_jobs_from_json(server, jobs_content)
+        except Exception, (error):
+          self.print_with_time("error collecting jobs from this content: ")
+          print jobs_content
+      
+
+  def download_server_info(self, server):
+    try:
+      return urllib2.urlopen(server + self.ALL_PLANS_PATH, timeout=2).read()
+    except Exception, (error):
+      error_message = "error downloading jobs info from: " + server
+      #self.data['errors'].append(error)
+      print(error)
+      return None          
+
+
 class MetaButler:
   def __init__(self, path_to_config = "config.js"):
     self.pipelines = []
@@ -107,7 +135,7 @@ class MetaButler:
     if self.servers is not None:
       process_jenkins_servers()
     if self.bamboo_servers is not None:
-      process_bamboo_servers()
+      Bamboo(self.bamboo_servers).process()
 
     self.add_refresh_time_to_data()
     self.populate_pipelines(self.pipeline_config, self.data)
@@ -133,7 +161,7 @@ class MetaButler:
 
   def process_bamboo_servers(self):
     print "noop"
-    
+
   def download_server_info(self, server):
     try:
       return urllib2.urlopen(server + "api/json", timeout=2).read()

@@ -5,5 +5,8 @@
 		"memcache_port": "20120"
 
 	},
+	"bamboo": {
+		"servers": {}
+	},
 	"pipelines": []
 }
