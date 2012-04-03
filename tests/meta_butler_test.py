@@ -1,5 +1,5 @@
 from nose.tools import *
-from mock import patch, Mock
+from mock import patch, Mock, call
 from meta_butler import MetaButler
 from unittest import TestCase
 import os.path, time
@@ -21,7 +21,7 @@ class TestMetaButler:
   def test_collect_jobs_from_json(self):
     butler = MetaButler()
     butler.collect_jobs_from_json('http://ci.dev/', '{"jobs":[{"name": "job1", "color": "blue"}]}')
-    job = butler.data["jobs"]["http://ci.dev/jobs/job1"]
+    job = butler.data["jobs"]["http://ci.dev/job/job1"]
     assert job['name'] == "job1"
     assert job['server'] == "http://ci.dev/"
     assert job['color'] == "blue"
@@ -30,8 +30,8 @@ class TestMetaButler:
     butler = MetaButler()
     butler.data = {
       "jobs": {
-        "http://ci.dev/jobs/unit_tests": {"name": "unit_tests"}, 
-        "http://ci.dev/jobs/acceptance_tests": {"name": "acceptance_tests"}
+        "http://ci.dev/job/unit_tests": {"name": "unit_tests"}, 
+        "http://ci.dev/job/acceptance_tests": {"name": "acceptance_tests"}
       }
     }
     html_content = """
@@ -55,8 +55,8 @@ class TestMetaButler:
     </table>
     """
     butler.collect_claims_from_html('http://ci.dev/', html_content)
-    assert butler.data["jobs"]["http://ci.dev/jobs/unit_tests"]['claim'] == "Gob Bluth"
-    assert butler.data["jobs"]["http://ci.dev/jobs/acceptance_tests"]['claim'] == "Michael Bluth"
+    assert butler.data["jobs"]["http://ci.dev/job/unit_tests"]['claim'] == "Gob Bluth"
+    assert butler.data["jobs"]["http://ci.dev/job/acceptance_tests"]['claim'] == "Michael Bluth"
     
   def test_save_data_to_memcached(self):
     memcache_client_patcher = patch('memcache.Client')
@@ -64,7 +64,8 @@ class TestMetaButler:
     butler = MetaButler()
     butler.data = {"yep": "nope"}
     butler.save_data()
-    fake_mc.return_value.set.assert_called_once_with('meta_butler_data', {'yep': 'nope'})
+    expected = [call('all_jobs', {'yep': 'nope'}), call('pipelines', [])]
+    assert fake_mc.return_value.set.call_args_list == expected
     memcache_client_patcher.stop()
   
   
