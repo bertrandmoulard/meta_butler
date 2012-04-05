@@ -5,10 +5,12 @@ from unittest import TestCase
 import os.path, time
 
 class TestBamboo:
+  config = "tests/fixture_config.js"
 
-  #@patch('urllib2.urlopen')
-  def test_download_server_info(self):
-    print "hello"
-    Bamboo(["http://master.cd.vpc.realestate.com.au:8085"]).process()
-    assert True == False
+  @patch('urllib2.urlopen')
+  def test_download_server_info(self, fake_uopen):
+    fake_uopen.return_value.read.return_value = '{"plans": { "plan": [] } }'
+    Bamboo(["http://someserver/"]).process()
+    fake_uopen.assert_called_once_with0("/rest/api/latest/plan.json?expand=plans.plan.stages.stage.plans", timeout=2)
+
   

@@ -91,9 +91,9 @@ class Bamboo:
 
   def __init__(self, servers):
     self.servers = servers
+    self.pipelines = []
 
   def process(self):
-    print "process"
     for server in self.servers:
       jobs_content = self.download_server_info(server)
       if jobs_content is not None:
@@ -103,17 +103,12 @@ class Bamboo:
           print error
           self.print_with_time("error collecting jobs from this content: ")
           print jobs_content
+    return self.pipelines
 
   def parse_json(self, json_string):
     o = json.loads(json_string)
     for plan in o['plans']['plan']:
-      pipeline = Pipeline(plan,[],False)
-      print pipeline
-      # id = server + "job/" + job['name']
-      # job_hash = {"name" : plan['name'], "server" : server, "color" : job['color']}
-      # self.data["jobs"][id] = job_hash
-
-
+      self.pipelines.append(Pipeline(plan,[],False))
 
   def download_server_info(self, server):
     try:
@@ -135,6 +130,7 @@ class MetaButler:
     f = open(path_to_config)
     j = json.load(f)
     self.servers = j['meta_butler']['servers'] 
+    self.bamboo_servers = j['meta_butler']['bamboo']['servers']
     connection_string = j["meta_butler"]["memcache_host"] + ":"
     connection_string += j["meta_butler"]["memcache_port"]
     self.mc = memcache.Client([connection_string], debug=0)
@@ -171,7 +167,7 @@ class MetaButler:
         claimer_text = td.text_content().replace("claimed by", "").strip()
         return re.sub("\s*because:.*", "", claimer_text)
     return None
-      
+  
   def collect_jobs_from_json(self, server, json_string):
     o = json.loads(json_string)
     for job in o['jobs']:
@@ -182,19 +178,28 @@ class MetaButler:
   def save_data(self):
     self.mc.set("all_jobs", self.data)
     self.mc.set("pipelines", json.loads(jsonpickle.encode(self.pipelines, unpicklable=False)))
+
+  def save_bamboo_pipelines(self, bamboo_pipelines):
+    for pipeline in bamboo_pipelines:
+      self.pipelines.append(pipeline)
+    self.mc.set("bamboo_pipelines", json.loads(jsonpickle.encode(bamboo_pipelines, unpicklable=False)))
+
     
   def add_refresh_time_to_data(self):
     self.data['refresh'] = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
-          
+    
   def do_your_job(self):
     if self.servers is not None:
-      process_jenkins_servers()
-    if self.bamboo_servers is not None:
-      Bamboo(self.bamboo_servers).process()
+      self.process_jenkins_servers()
+      self.add_refresh_time_to_data()
+      self.populate_pipelines(self.pipeline_config, self.data)
 
-    self.add_refresh_time_to_data()
-    self.populate_pipelines(self.pipeline_config, self.data)
+    if self.bamboo_servers is not None:
+      bamboo_pipelines = Bamboo(self.bamboo_servers).process()
+
+    self.save_bamboo_pipelines(bamboo_pipelines)
     self.save_data()
+
 
   def process_jenkins_servers(self):
     for server in self.servers:
@@ -213,9 +218,6 @@ class MetaButler:
         except Exception, (error):
           self.print_with_time("error collecting claims from this content: ")
           print claims_content
-
-  def process_bamboo_servers(self):
-    print "noop"
 
   def download_server_info(self, server):
     try:

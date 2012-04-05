@@ -28,6 +28,10 @@ def jobs():
 def pipelines():
   return get_data("pipelines")
 
+@app.route("/bamboo_pipelines")
+def bamboo_pipelines():
+  return get_data("bamboo_pipelines")
+
 @app.route("/config.json")
 def config():
   f = open(os.path.join("/", "home", "ci", "meta_butler", "config.js"))
