@@ -14,6 +14,9 @@ class Job:
     self.url = job_json["link"]["href"]  
     self.color = "blue"
     self.name = job_json["name"]
+    self.key = job_json["key"]
+    self.state = job_json["state"]
+    self.building = job_json["isBuilding"]
 
   def init_job(self, job_json, jobs_data):    
     self.url = job_json
@@ -63,12 +66,16 @@ class Pipeline:
     self.stages = []
     self.can_commit = True
     self.name = pipeline_json['name']
+
     if init_with_json:
       self.init_pipeline(pipeline_json, jobs_data)
     else: 
       self.init_bamboo_pipeline(pipeline_json)
 
   def init_bamboo_pipeline(self, pipeline_json):
+    print "******************"
+    print pipeline_json['key']
+    self.key = pipeline_json['key']
     for stage_json in pipeline_json['stages']['stage']:
       stage = Stage(stage_json, [], False)
       self.stages.append(stage)
@@ -88,31 +95,66 @@ class Pipeline:
 
 class Bamboo:
   ALL_PLANS_PATH = "/rest/api/latest/plan.json?expand=plans.plan.stages.stage.plans"
+  ALL_RESULTS_PATH = "/rest/api/latest/result.json?expand=results.result.stages.stage.results"
 
   def __init__(self, servers):
     self.servers = servers
     self.pipelines = []
+    self.pipelines_result = []
 
   def process(self):
     for server in self.servers:
-      jobs_content = self.download_server_info(server)
-      if jobs_content is not None:
-        try:
-          self.parse_json(jobs_content)
-        except Exception, (error):
-          print error
-          self.print_with_time("error collecting jobs from this content: ")
-          print jobs_content
+      self.pipelines = self.download_contents(server, self.ALL_PLANS_PATH)
+      self.pipelines_result = self.download_contents(server, self.ALL_RESULTS_PATH)
+    self.populate_colors()
     return self.pipelines
+
+  def populate_colors(self):
+    for pipeline in self.pipelines_result:
+      pipeline_key = pipeline['key'].rpartition('-')[0]
+      plan_pipeline = self.pipelines[pipeline_key]
+      for stage in pipeline.stages:
+        stage_key = stage['key'].rpartition('-')[0]
+        plan_stage = plan_pipeline.stages[stage_key]
+        for job in stage.jobs:
+          job_key = job['key'].rpartition('-')[0]
+          plan_job = plan_stage.jobs[job_key]
+          self.decide_color(job, plan_job)
+
+  def decide_color(self, results_job, plan_job):
+    if plan_job.building == True:
+      if results_job.state == 'Successful':
+        plan_job.color = 'blue_anime'
+      elif results_job.state == 'Failed':
+        plan_job.color = 'red_anime'
+    else:
+      if results_job.state == 'Successful':
+        plan_job.color = 'blue'
+      elif results_job.state == 'Failed':
+        plan_job.color = 'red'      
+
+  def download_contents(self, server, path):
+    content = self.download_server_info(server, path)
+    all_contents = []
+    if content is not None:
+      try:
+        all_contents = self.parse_json(content)
+      except Exception, (error):
+        print error
+        self.print_with_time("error collecting jobs from this content: ")
+        print plans_content    
+    return all_contents
 
   def parse_json(self, json_string):
     o = json.loads(json_string)
+    pipelines = []
     for plan in o['plans']['plan']:
-      self.pipelines.append(Pipeline(plan,[],False))
+      pipelines.append(Pipeline(plan,[],False))
+    return pipelines
 
-  def download_server_info(self, server):
+  def download_server_info(self, server, path):
     try:
-      return urllib2.urlopen(server + self.ALL_PLANS_PATH, timeout=2).read()
+      return urllib2.urlopen(server + path, timeout=2).read()
     except Exception, (error):
       error_message = "error downloading jobs info from: " + server
       #self.data['errors'].append(error)
