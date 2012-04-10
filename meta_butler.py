@@ -1,4 +1,4 @@
-import ConfigParser, json, memcache, urllib2, datetime
+import ConfigParser, json, memcache, urllib2, datetime, urlparse
 import lxml.html
 import jsonpickle
 import re
@@ -15,8 +15,8 @@ class Job:
     self.color = "blue"
     self.name = job_json["name"]
     self.key = job_json["key"]
-    self.state = job_json["state"]
-    self.building = job_json["isBuilding"]
+    self.state = job_json if job_json.has_key('state') else ''
+    self.building = job_json["isBuilding"] if job_json.has_key('isBuilding') else ''
 
   def init_job(self, job_json, jobs_data):    
     self.url = job_json
@@ -73,8 +73,6 @@ class Pipeline:
       self.init_bamboo_pipeline(pipeline_json)
 
   def init_bamboo_pipeline(self, pipeline_json):
-    print "******************"
-    print pipeline_json['key']
     self.key = pipeline_json['key']
     for stage_json in pipeline_json['stages']['stage']:
       stage = Stage(stage_json, [], False)
@@ -92,6 +90,10 @@ class Pipeline:
         self.can_commit = False
     self.refresh_time = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
 
+class Log:
+  @classmethod
+  def print_with_time(cls, error):
+    print datetime.datetime.now().strftime("%Y/%m/%d - %H:%M:%S") + ": " + str(error)
 
 class Bamboo:
   ALL_PLANS_PATH = "/rest/api/latest/plan.json?expand=plans.plan.stages.stage.plans"
@@ -141,20 +143,21 @@ class Bamboo:
         all_contents = self.parse_json(content)
       except Exception, (error):
         print error
-        self.print_with_time("error collecting jobs from this content: ")
-        print plans_content    
+        Log.print_with_time("error collecting jobs from this content: ")
+        print all_contents    
     return all_contents
 
   def parse_json(self, json_string):
     o = json.loads(json_string)
     pipelines = []
-    for plan in o['plans']['plan']:
-      pipelines.append(Pipeline(plan,[],False))
+    if o.has_key('plans'):
+      for plan in o['plans']['plan']:
+        pipelines.append(Pipeline(plan,[],False))
     return pipelines
 
   def download_server_info(self, server, path):
     try:
-      return urllib2.urlopen(server + path, timeout=2).read()
+      return urllib2.urlopen(urlparse.urljoin(server, path), timeout=2).read()
     except Exception, (error):
       error_message = "error downloading jobs info from: " + server
       #self.data['errors'].append(error)
@@ -165,14 +168,17 @@ class Bamboo:
 class MetaButler:
   def __init__(self, path_to_config = "config.js"):
     self.pipelines = []
+    self.bamboo_servers = []
     self.read_config(path_to_config)
     self.data = {"jobs": {}, "errors": []}
 
   def read_config(self, path_to_config):
     f = open(path_to_config)
     j = json.load(f)
-    self.servers = j['meta_butler']['servers'] 
-    self.bamboo_servers = j['meta_butler']['bamboo']['servers']
+    self.servers = j['meta_butler']['servers']
+
+    if j['meta_butler'].has_key('bamboo'): 
+      self.bamboo_servers = j['meta_butler']['bamboo']['servers']
     connection_string = j["meta_butler"]["memcache_host"] + ":"
     connection_string += j["meta_butler"]["memcache_port"]
     self.mc = memcache.Client([connection_string], debug=0)
