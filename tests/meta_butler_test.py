@@ -11,13 +11,13 @@ class TestMetaButler:
   def test_download_server_info(self, fake_uopen):
     fake_uopen.return_value.read.return_value = "somejson"
     MetaButler(self.config).download_server_info("http://someserver/")
-    fake_uopen.assert_called_once_with("http://someserver/api/json", timeout=2)
+    fake_uopen.assert_called_once_with("http://someserver/api/json", timeout=3)
   
   @patch('urllib2.urlopen')
   def test_download_claim_info(self, fake_uopen):
     fake_uopen.return_value.read.return_value = "somehtml"
     MetaButler(self.config).download_claim_info("http://someserver/")
-    fake_uopen.assert_called_once_with("http://someserver/claims/", timeout=2)
+    fake_uopen.assert_called_once_with("http://someserver/claims/", timeout=3)
   
   def test_collect_jobs_from_json(self):
     butler = MetaButler(self.config)

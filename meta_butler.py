@@ -157,7 +157,7 @@ class Bamboo:
 
   def download_server_info(self, server, path):
     try:
-      return urllib2.urlopen(urlparse.urljoin(server, path), timeout=2).read()
+      return urllib2.urlopen(urlparse.urljoin(server, path), timeout=3).read()
     except Exception, (error):
       print "error downloading job info from: " + server + ". Error message:"
       print(error)
@@ -294,7 +294,7 @@ class MetaButler:
     retval = None
     for i  in range(0, retry_count):
       try:
-        retval = urllib2.urlopen(url, timeout=2).read()
+        retval = urllib2.urlopen(url, timeout=3).read()
         if i != 0:
           Log.print_with_time("Warning: Retrieving url[" + url + "] succeeded after " + str((i+1)) + " times.")
         return retval
