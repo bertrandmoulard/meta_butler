@@ -159,13 +159,14 @@ class Bamboo:
     try:
       return urllib2.urlopen(urlparse.urljoin(server, path), timeout=2).read()
     except Exception, (error):
-      error_message = "error downloading jobs info from: " + server
-      #self.data['errors'].append(error)
+      print "error downloading job info from: " + server + ". Error message:"
       print(error)
       return None          
 
 
 class MetaButler:
+  RETRY_COUNT = 3
+
   def __init__(self, path_to_config = "config.js"):
     self.pipelines = []
     self.bamboo_servers = []
@@ -190,16 +191,21 @@ class MetaButler:
       self.pipelines.append(pipeline)
 
   def collect_claims_from_html(self, server, html_string):
-    html = lxml.html.fromstring(html_string)
-    rows = html.cssselect("#projectStatus tr")
-    for row in rows:
-      claimer = self.get_claimer_from_row(row)
-      job_name = self.get_job_name_from_row(row)
-      
-      if claimer is not None and job_name is not None:
-        if self.data["jobs"][server + "job/" + job_name] is not None:
-          self.data["jobs"][server + "job/" + job_name]['claim'] = claimer
+    try:
+      html = lxml.html.fromstring(html_string)
+      rows = html.cssselect("#projectStatus tr")
+      for row in rows:
+        claimer = self.get_claimer_from_row(row)
+        job_name = self.get_job_name_from_row(row)
         
+        if claimer is not None and job_name is not None:
+          if self.data["jobs"][server + "job/" + job_name] is not None:
+            self.data["jobs"][server + "job/" + job_name]['claim'] = claimer
+
+    except Exception, (error):
+      Log.print_with_time("Error occurred in collect_claims_from_html. Error:")
+      Log.print_with_time(error)
+      raise        
   
   def get_job_name_from_row(self, row):
     links = row.cssselect("td a")  
@@ -248,45 +254,53 @@ class MetaButler:
     self.save_bamboo_pipelines(bamboo_pipelines)
     self.save_data()
 
-
   def process_jenkins_servers(self):
     for server in self.servers:
-      jobs_content = self.download_server_info(server)
+      url = server['url']
+
+      jobs_content = self.download_server_info(url)
       if jobs_content is not None:
         try:
-          self.collect_jobs_from_json(server, jobs_content)
+          self.collect_jobs_from_json(url, jobs_content)
         except Exception, (error):
-          self.print_with_time("error collecting jobs from this content: ")
+          Log.print_with_time("error collecting jobs from this content: ")
           print jobs_content
       
-      claims_content = self.download_claim_info(server)
-      if claims_content is not None:
-        try:
-          self.collect_claims_from_html(server, claims_content)
-        except Exception, (error):
-          self.print_with_time("error collecting claims from this content: ")
-          print claims_content
+        if server['download_claims']:
+          claims_content = self.download_claim_info(url)
+          if claims_content is not None:
+            try:
+              self.collect_claims_from_html(url, claims_content)
+            except Exception, (error):
+              Log.print_with_time(error)
+              Log.print_with_time("error collecting claims from this content: ")
+              print claims_content
 
   def download_server_info(self, server):
-    try:
-      return urllib2.urlopen(server + "api/json", timeout=2).read()
-    except Exception, (error):
-      error = "error downloading jobs info from: " + server
-      self.data['errors'].append(error)
-      self.print_with_time(error)
-      return None
+    url = urlparse.urljoin(server, "api/json")
+    retval = self.download_html_with_retry(url, self.RETRY_COUNT)
+    if retval is None:
+      Log.print_with_time("Warning: no jobs downloaded for server[" + url + "]")
+    return retval
   
   def download_claim_info(self, server):
-    try:
-      return urllib2.urlopen(server + "claims/?", timeout=2).read()
-    except Exception, (error):
-      error = "error downloading claims info from: " + server
-      self.data['errors'].append(error)
-      self.print_with_time(error)
-      return None
+    url = urlparse.urljoin(server,"claims/?")
+    retval = self.download_html_with_retry(url, self.RETRY_COUNT)
+    if retval is None:
+      Log.print_with_time("Warning: no claims downloaded for server[" + url + "]")
+    return retval
   
-  def print_with_time(self, error):
-    print datetime.datetime.now().strftime("%Y/%m/%d - %H:%M:%S") + ": " + str(error)
+  def download_html_with_retry(self, url, retry_count):
+    retval = None
+    for i  in range(0, retry_count):
+      try:
+        retval = urllib2.urlopen(url, timeout=2).read()
+        if i != 0:
+          Log.print_with_time("Warning: Retrieving url[" + url + "] succeeded after " + str((i+1)) + " times.")
+        return retval
+      except Exception, (error):
+        Log.print_with_time("Error while downloading from url [" + url + "]. Error: " + str(error))
+    return None
     
 if __name__ == '__main__':
   butler = MetaButler()

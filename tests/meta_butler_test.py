@@ -17,7 +17,7 @@ class TestMetaButler:
   def test_download_claim_info(self, fake_uopen):
     fake_uopen.return_value.read.return_value = "somehtml"
     MetaButler(self.config).download_claim_info("http://someserver/")
-    fake_uopen.assert_called_once_with("http://someserver/claims/?", timeout=2)
+    fake_uopen.assert_called_once_with("http://someserver/claims/", timeout=2)
   
   def test_collect_jobs_from_json(self):
     butler = MetaButler(self.config)
