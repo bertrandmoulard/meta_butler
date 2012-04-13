@@ -148,7 +148,8 @@ class Bamboo:
 
   def generate_stage_from_json(self, stage_json, stage_result_json):
     stage = Stage()
-    stage.blocks_commits = True    
+    stage.blocks_commits = True
+    stage.name = stage_json['name']
     for job_json in stage_json['plans']['plan']:
       if stage_result_json is None:
         job_result_json = None
@@ -165,7 +166,8 @@ class Bamboo:
     return stage
 
   def generate_job_from_json(self, job_json, job_result_json):
-    job = Job(job_json["name"], job_json["link"]["href"])
+    self.dump_json(job_json)
+    job = Job(job_json["shortName"], job_json["link"]["href"])
     if job_result_json is None:
       job_result = "Successful"
     else:
