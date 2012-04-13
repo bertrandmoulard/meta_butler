@@ -166,7 +166,6 @@ class Bamboo:
     return stage
 
   def generate_job_from_json(self, job_json, job_result_json):
-    self.dump_json(job_json)
     job = Job(job_json["shortName"], job_json["link"]["href"])
     if job_result_json is None:
       job_result = "Successful"
