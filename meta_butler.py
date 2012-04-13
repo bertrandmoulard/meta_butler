@@ -4,56 +4,44 @@ import jsonpickle
 import re
 
 class Job:
-  def __init__(self, job_json, jobs_data, init_with_json=True):
-    if init_with_json:
-      self.init_job(job_json, jobs_data)
-    else: 
-      self.init_bamboo_job(job_json)
+  def __init__(self, name, url):
+    self.name = name
+    self.url = url
 
-  def init_bamboo_job(self, job_json):
-    self.url = job_json["link"]["href"]  
-    self.color = "blue"
-    self.name = job_json["name"]
-    self.key = job_json["key"]
-    self.state = job_json if job_json.has_key('state') else ''
-    self.building = job_json["isBuilding"] if job_json.has_key('isBuilding') else ''
-
-  def init_job(self, job_json, jobs_data):    
-    self.url = job_json
-    try:
-      job_data = jobs_data["jobs"][job_json]
-      self.color = job_data["color"]
-      self.name = job_data["name"]
+  @classmethod
+  def create_from_jenkins_json(cls, job_url, jobs_data):
+    job = None
+    
+    if job_url in jobs_data["jobs"]:
+      job_data = jobs_data["jobs"][job_url]
+      name = job_data["name"]
+      job = Job(name, job_url)
+      job.color = job_data["color"]
       if "claim" in job_data:
-        self.claim = job_data["claim"]
-    except:
-      self.color = "transparent"
-      self.name = job_json.split("/")[-1]
+        job.claim = job_data["claim"]
+    else:
+      job = Job(job_url.split("/")[-1], job_url)
+      job.color = "transparent"
+      Log.print_with_time("Job with url [" + job_url + "] was not found in the downloaded jobs.")     
+    return job
 
 class Stage:
-  def __init__(self, stage_json, jobs_data, init_with_json=True):
-    self.name = stage_json['name']
+  def __init__(self):
+    self.name = ""
     self.jobs = []
     self.color = "blue"
-    if init_with_json:
-      self.init_stage(stage_json, jobs_data)
-    else:
-      self.init_bamboo_stage(stage_json)
 
-  def init_bamboo_stage(self, stage_json):
-    self.blocks_commits = True    
-    for job_json in stage_json['plans']['plan']:
-      job = Job(job_json, [], False)
-      if job.color.find("red") > -1:
-        self.color = "red"
-      elif self.color is not "red" and job.color.find("anime")  > -1:
-        self.color = "blue_anime"
-      self.jobs.append(job)
+  @classmethod
+  def create_from_jenkins_json(cls, stage_json, jobs_data):
+    stage = Stage()
+    stage.name = stage_json['name']
+    stage.init_stage(stage_json, jobs_data)
+    return stage
 
   def init_stage(self, stage_json, jobs_data):
     self.blocks_commits = stage_json['blocks_commits']
     for job_json in stage_json['jobs']:
-      job = Job(job_json, jobs_data)
+      job = Job.create_from_jenkins_json(job_json, jobs_data)
       if job.color.find("red") > -1:
         self.color = "red"
       elif self.color is not "red" and job.color.find("anime")  > -1:
@@ -62,29 +50,20 @@ class Stage:
 
 
 class Pipeline:
-  def __init__(self, pipeline_json, jobs_data, init_with_json=True):
+  def __init__(self):
     self.stages = []
     self.can_commit = True
-    self.name = pipeline_json['name']
-
-    if init_with_json:
-      self.init_pipeline(pipeline_json, jobs_data)
-    else: 
-      self.init_bamboo_pipeline(pipeline_json)
-
-  def init_bamboo_pipeline(self, pipeline_json):
-    self.key = pipeline_json['key']
-    for stage_json in pipeline_json['stages']['stage']:
-      stage = Stage(stage_json, [], False)
-      self.stages.append(stage)
-      if stage.blocks_commits and stage.color is "red":
-        self.can_commit = False
-    self.refresh_time = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
-
+    self.name = ''
+  
+  @classmethod
+  def create_from_jenkins_json(cls, pipeline_json, jobs_data):
+    pipeline = cls()
+    pipeline.name = pipeline_json['name']
+    pipeline.init_pipeline(pipeline_json, jobs_data)
 
   def init_pipeline(self,pipeline_json,jobs_data):
     for stage_json in pipeline_json['stages']:
-      stage = Stage(stage_json, jobs_data)
+      stage = Stage.create_from_jenkins_json(stage_json, jobs_data)
       self.stages.append(stage)
       if stage.blocks_commits and stage.color is "red":
         self.can_commit = False
@@ -96,8 +75,8 @@ class Log:
     print datetime.datetime.now().strftime("%Y/%m/%d - %H:%M:%S") + ": " + str(error)
 
 class Bamboo:
-  ALL_PLANS_PATH = "/rest/api/latest/plan.json?expand=plans.plan.stages.stage.plans"
-  ALL_RESULTS_PATH = "/rest/api/latest/result.json?expand=results.result.stages.stage.results"
+  ALL_PLANS_PATH = "/rest/api/latest/plan.json?expand=plans.plan.stages.stage.plans.plan"
+  ALL_RESULTS_PATH = "/rest/api/latest/result.json?expand=results.result.stages.stage.results.result"
 
   def __init__(self, servers):
     self.servers = servers
@@ -106,58 +85,110 @@ class Bamboo:
 
   def process(self):
     for server in self.servers:
-      self.pipelines = self.download_contents(server, self.ALL_PLANS_PATH)
-      self.pipelines_result = self.download_contents(server, self.ALL_RESULTS_PATH)
-    self.populate_colors()
+      plans_json = self.download_contents(server, self.ALL_PLANS_PATH)
+      results_json = self.download_contents(server, self.ALL_RESULTS_PATH)
+      pipelines = self.generate_pipelines_from_json(plans_json, results_json)
+      self.pipelines.append(pipelines)
     return self.pipelines
-
-  def populate_colors(self):
-    for pipeline in self.pipelines_result:
-      pipeline_key = pipeline['key'].rpartition('-')[0]
-      plan_pipeline = self.pipelines[pipeline_key]
-      for stage in pipeline.stages:
-        stage_key = stage['key'].rpartition('-')[0]
-        plan_stage = plan_pipeline.stages[stage_key]
-        for job in stage.jobs:
-          job_key = job['key'].rpartition('-')[0]
-          plan_job = plan_stage.jobs[job_key]
-          self.decide_color(job, plan_job)
-
-  def decide_color(self, results_job, plan_job):
-    if plan_job.building == True:
-      if results_job.state == 'Successful':
-        plan_job.color = 'blue_anime'
-      elif results_job.state == 'Failed':
-        plan_job.color = 'red_anime'
-    else:
-      if results_job.state == 'Successful':
-        plan_job.color = 'blue'
-      elif results_job.state == 'Failed':
-        plan_job.color = 'red'      
 
   def download_contents(self, server, path):
     content = self.download_server_info(server, path)
-    all_contents = []
+    all_contents = None
     if content is not None:
       try:
-        all_contents = self.parse_json(content)
+        all_contents = json.loads(content)
       except Exception, (error):
-        print error
+        Log.print_with_time("error:" + str(error))
         Log.print_with_time("error collecting jobs from this content: ")
-        print all_contents    
+        print contents
     return all_contents
 
-  def parse_json(self, json_string):
-    o = json.loads(json_string)
+  def dump_json(self, json_to_dump):
+    print json.dumps(json_to_dump, indent=2)
+
+  def find_plan_result_by_plan_key(self, plan_key, results_json):
+    for result in results_json:
+      if result["key"].startswith(plan_key):
+        return result
+
+  def find_stage_result_by_name(self, stage_name, results_json):
+    for result in results_json:
+      if result["name"] == stage_name:
+        return result
+
+  def find_job_result_by_key(self, job_key, results_json):
+    for result in results_json:
+      if result["key"].startswith(job_key):
+        return result
+
+  def generate_pipelines_from_json(self, pipelines_json, results_json):
     pipelines = []
-    if o.has_key('plans'):
-      for plan in o['plans']['plan']:
-        pipelines.append(Pipeline(plan,[],False))
+    if pipelines_json.has_key('plans'):
+      for plan_json in pipelines_json['plans']['plan']:
+        plan_result_json = self.find_plan_result_by_plan_key(plan_json["key"], results_json['results']['result'])
+        pipeline = self.generate_pipeline_from_json(plan_json, plan_result_json)
+        pipelines.append(pipeline)
     return pipelines
+
+  def generate_pipeline_from_json(self, plan_json, plan_result_json):
+    pipeline = Pipeline()
+    pipeline.name = plan_json['name'];
+    pipeline.key = plan_json['key']
+    for stage_json in plan_json['stages']['stage']:
+      if plan_result_json is None or plan_result_json["state"] == "Successful":
+        stage = self.generate_stage_from_json(stage_json, None)
+      else:
+        stage = self.generate_stage_from_json(stage_json, self.find_stage_result_by_name(stage_json["name"], plan_result_json["stages"]["stage"]))
+      pipeline.stages.append(stage)
+      if stage.blocks_commits and stage.color is "red":
+        pipeline.can_commit = False
+        pipeline.refresh_time = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
+    return pipeline
+
+  def generate_stage_from_json(self, stage_json, stage_result_json):
+    stage = Stage()
+    stage.blocks_commits = True    
+    for job_json in stage_json['plans']['plan']:
+      if stage_result_json is None:
+        job_result_json = None
+      else:
+        job_result_json = self.find_job_result_by_key(job_json["key"],stage_result_json["results"]["result"])
+
+      job = self.generate_job_from_json(job_json, job_result_json)
+      
+      if job.color.find("red") > -1:
+        stage.color = "red"
+      elif stage.color is not "red" and job.color.find("anime")  > -1:
+        stage.color = "blue_anime"
+      stage.jobs.append(job)
+    return stage
+
+  def generate_job_from_json(self, job_json, job_result_json):
+    job = Job(job_json["name"], job_json["link"]["href"])
+    if job_result_json is None:
+      job_result = "Successful"
+    else:
+      job_result = job_result_json["state"]
+    job.color = self.determine_color(job_json["isBuilding"], job_result)
+    job.key = job_json["key"]
+    return job
+
+  def determine_color(self, is_building, result_string):
+    if result_string == "Successful" or result_string == "Unknown":
+      if is_building:
+        return "blue_anime"
+      else:
+        return "blue"
+    else:
+      if is_building:
+        return "red_anime"
+      else:
+        return "red"
 
   def download_server_info(self, server, path):
     try:
-      return urllib2.urlopen(urlparse.urljoin(server, path), timeout=3).read()
+      url = urlparse.urljoin(server, path)
+      return urllib2.urlopen(url, timeout=3).read()
     except Exception, (error):
       print "error downloading job info from: " + server + ". Error message:"
       print(error)
@@ -187,7 +218,7 @@ class MetaButler:
     
   def populate_pipelines(self, pipeline_configs, jobs_data):
     for pipeline_json in pipeline_configs:
-      pipeline = Pipeline(pipeline_json, jobs_data)
+      pipeline = Pipeline.create_from_jenkins_json(pipeline_json, jobs_data)
       self.pipelines.append(pipeline)
 
   def collect_claims_from_html(self, server, html_string):
