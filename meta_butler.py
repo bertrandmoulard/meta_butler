@@ -124,7 +124,7 @@ class Bamboo:
 
   def generate_pipelines_from_json(self, pipelines_json, results_json):
     pipelines = []
-    if pipelines_json.has_key('plans'):
+    if pipelines_json is not None and pipelines_json.has_key('plans'):
       for plan_json in pipelines_json['plans']['plan']:
         plan_result_json = self.find_plan_result_by_plan_key(plan_json["key"], results_json['results']['result'])
         pipeline = self.generate_pipeline_from_json(plan_json, plan_result_json)
@@ -194,7 +194,7 @@ class Bamboo:
     except Exception, (error):
       print "error downloading job info from: " + server + ". Error message:"
       print(error)
-      return None          
+      raise          
 
 
 class MetaButler:
