@@ -89,7 +89,7 @@ class Bamboo:
       plans_json = self.download_contents(server, self.ALL_PLANS_PATH)
       results_json = self.download_contents(server, self.ALL_RESULTS_PATH)
       pipelines = self.generate_pipelines_from_json(plans_json, results_json)
-      self.pipelines.append(pipelines)
+      self.pipelines = self.pipelines + pipelines
     return self.pipelines
 
   def download_contents(self, server, path):
