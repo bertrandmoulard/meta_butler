@@ -60,6 +60,7 @@ class Pipeline:
     pipeline = cls()
     pipeline.name = pipeline_json['name']
     pipeline.init_pipeline(pipeline_json, jobs_data)
+    return pipeline
 
   def init_pipeline(self,pipeline_json,jobs_data):
     for stage_json in pipeline_json['stages']:
@@ -155,7 +156,7 @@ class Bamboo:
         job_result_json = self.find_job_result_by_key(job_json["key"],stage_result_json["results"]["result"])
 
       job = self.generate_job_from_json(job_json, job_result_json)
-      
+
       if job.color.find("red") > -1:
         stage.color = "red"
       elif stage.color is not "red" and job.color.find("anime")  > -1:
