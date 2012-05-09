@@ -86,10 +86,13 @@ class Bamboo:
 
   def process(self):
     for server in self.servers:
-      plans_json = self.download_contents(server, self.ALL_PLANS_PATH)
-      results_json = self.download_contents(server, self.ALL_RESULTS_PATH)
-      pipelines = self.generate_pipelines_from_json(plans_json, results_json)
-      self.pipelines = self.pipelines + pipelines
+      try:
+        plans_json = self.download_contents(server, self.ALL_PLANS_PATH)
+        results_json = self.download_contents(server, self.ALL_RESULTS_PATH)
+        pipelines = self.generate_pipelines_from_json(plans_json, results_json)
+        self.pipelines = self.pipelines + pipelines
+      except Exception, (error):
+        Log.print_with_time("Bamboo build data could not be retrieved for server [" + server + "] because of error [" + str(error) + "]")
     return self.pipelines
 
   def download_contents(self, server, path):
