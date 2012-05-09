@@ -102,7 +102,7 @@ class Bamboo:
       try:
         all_contents = json.loads(content)
       except Exception, (error):
-        Log.print_with_time("error:" + str(error))
+        Log.print_with_time("error while retrieving data from" + server + "/" + path + ":" + str(error))
         Log.print_with_time("error collecting jobs from this content: ")
         print contents
     return all_contents
