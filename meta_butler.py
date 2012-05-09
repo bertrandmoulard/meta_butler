@@ -96,15 +96,20 @@ class Bamboo:
     return self.pipelines
 
   def download_contents(self, server, path):
-    content = self.download_server_info(server, path)
+    content = None
+    try:
+      content = self.download_server_info(server, path)
+    except Exception, (error):
+      Log.print_with_time("error while retrieving data from" + server + "/" + path + ":" + str(error))
+      raise
+
     all_contents = None
     if content is not None:
       try:
         all_contents = json.loads(content)
       except Exception, (error):
-        Log.print_with_time("error while retrieving data from" + server + "/" + path + ":" + str(error))
-        Log.print_with_time("error collecting jobs from this content: ")
-        print contents
+        Log.print_with_time("error while processing the data from" + server + "/" + path + ":" + str(error) + ". Data:")
+        Log.print_with_time(contents)
     return all_contents
 
   def dump_json(self, json_to_dump):
