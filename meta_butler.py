@@ -70,6 +70,20 @@ class Pipeline:
         self.can_commit = False
     self.refresh_time = datetime.datetime.now().strftime("%A %d/%m/%Y - %H:%M:%S")
 
+class HttpHelper:
+  @classmethod
+  def download_html_with_retry(cls, url, retry_count):
+    retval = None
+    for i  in range(0, retry_count):
+      try:
+        retval = urllib2.urlopen(url, timeout=3).read()
+        if i != 0:
+          Log.print_with_time("Warning: Retrieving url[" + url + "] succeeded after " + str((i+1)) + " times.")
+        return retval
+      except Exception, (error):
+        Log.print_with_time("Error while downloading from url [" + url + "]. Error: " + str(error))
+    return None
+
 class Log:
   @classmethod
   def print_with_time(cls, error):
@@ -196,14 +210,9 @@ class Bamboo:
         return "red"
 
   def download_server_info(self, server, path):
-    try:
-      url = urlparse.urljoin(server, path)
-      return urllib2.urlopen(url, timeout=3).read()
-    except Exception, (error):
-      print "error downloading job info from: " + server + ". Error message:"
-      print(error)
-      raise          
-
+    url = urlparse.urljoin(server, path)
+    content = HttpHelper.download_html_with_retry(url, 3)
+    return content
 
 class MetaButler:
   RETRY_COUNT = 3
@@ -319,7 +328,7 @@ class MetaButler:
 
   def download_server_info(self, server):
     url = urlparse.urljoin(server, "api/json")
-    retval = self.download_html_with_retry(url, self.RETRY_COUNT)
+    retval = HttpHelper.download_html_with_retry(url, self.RETRY_COUNT)
     if retval is None:
       Log.print_with_time("Warning: no jobs downloaded for server[" + url + "]")
     return retval
