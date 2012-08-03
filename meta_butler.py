@@ -72,11 +72,11 @@ class Pipeline:
 
 class HttpHelper:
   @classmethod
-  def download_html_with_retry(cls, url, retry_count):
+  def download_html_with_retry(cls, url, retry_count, request_timeout=3):
     retval = None
     for i  in range(0, retry_count):
       try:
-        retval = urllib2.urlopen(url, timeout=3).read()
+        retval = urllib2.urlopen(url, timeout=request_timeout).read()
         if i != 0:
           Log.print_with_time("Warning: Retrieving url[" + url + "] succeeded after " + str((i+1)) + " times.")
         return retval
@@ -211,11 +211,12 @@ class Bamboo:
 
   def download_server_info(self, server, path):
     url = urlparse.urljoin(server, path)
-    content = HttpHelper.download_html_with_retry(url, 3)
+    content = HttpHelper.download_html_with_retry(url, 2, 5)
     return content
 
 class MetaButler:
-  RETRY_COUNT = 3
+  DEFAULT_RETRY_COUNT = 3
+  DEFAULT_HTTP_TIMEOUT = 3
 
   def __init__(self, path_to_config = "config.js"):
     self.pipelines = []
@@ -328,29 +329,17 @@ class MetaButler:
 
   def download_server_info(self, server):
     url = urlparse.urljoin(server, "api/json")
-    retval = HttpHelper.download_html_with_retry(url, self.RETRY_COUNT)
+    retval = HttpHelper.download_html_with_retry(url, self.DEFAULT_RETRY_COUNT)
     if retval is None:
       Log.print_with_time("Warning: no jobs downloaded for server[" + url + "]")
     return retval
   
   def download_claim_info(self, server):
     url = urlparse.urljoin(server,"claims/?")
-    retval = self.download_html_with_retry(url, self.RETRY_COUNT)
+    retval = HttpHelper.download_html_with_retry(url, self.DEFAULT_RETRY_COUNT)
     if retval is None:
       Log.print_with_time("Warning: no claims downloaded for server[" + url + "]")
     return retval
-  
-  def download_html_with_retry(self, url, retry_count):
-    retval = None
-    for i  in range(0, retry_count):
-      try:
-        retval = urllib2.urlopen(url, timeout=3).read()
-        if i != 0:
-          Log.print_with_time("Warning: Retrieving url[" + url + "] succeeded after " + str((i+1)) + " times.")
-        return retval
-      except Exception, (error):
-        Log.print_with_time("Error while downloading from url [" + url + "]. Error: " + str(error))
-    return None
     
 if __name__ == '__main__':
   butler = MetaButler()
